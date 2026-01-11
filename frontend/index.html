@@ -200,22 +200,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const thinking = addMessage("🤖 Thinking...", "bot");
 
     try {
-     const response = await fetch("/ask", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ question })
-});
+      const response = await fetch("/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ question })
+      });
 
-
-      if (!response.ok) {
-        throw new Error("Server error");
-      }
-
+      // ✅ ALWAYS read response first
       const data = await response.json();
       thinking.remove();
 
+      // ✅ Backend error (quota, server, validation)
+      if (!response.ok) {
+        addMessage(`❌ ${data.error || "Server error"}`, "bot");
+        return;
+      }
+
+      // ✅ Success
       if (data.answer) {
         addMessage(data.answer, "bot");
       } else {
@@ -224,8 +227,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } catch (err) {
       thinking.remove();
-      addMessage("❌ Backend connection failed.", "bot");
-      console.error(err);
+      addMessage("❌ Network error. Is backend running?", "bot");
+      console.error("FETCH ERROR:", err);
     }
   }
 
