@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
@@ -22,16 +23,21 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 
-// ---------- API KEY VALIDATION ----------
+// ---------- API KEY CHECK ----------
 if (!process.env.GEMINI_API_KEY) {
   console.error("❌ GEMINI_API_KEY missing");
   process.exit(1);
 }
 
-// ✅ UPDATED MODEL (YOUR REQUEST)
-const MODEL_NAME = "gemini-2.0-flash";
+// ---------- GEMINI CLIENT ----------
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-console.log("🚀 Using Gemini model:", MODEL_NAME);
+// ✅ GEMINI 2.5 FLASH (REQUIRES BILLING)
+const model = genAI.getGenerativeModel({
+  model: "gemini-2.5-flash"
+});
+
+console.log("🚀 Gemini SDK initialized (gemini-2.5-flash)");
 
 // ---------- ASK API ----------
 app.post("/ask", async (req, res) => {
@@ -42,51 +48,31 @@ app.post("/ask", async (req, res) => {
       return res.status(400).json({ error: "Question required" });
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/${MODEL_NAME}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `
+    const prompt = `
 You are a QA Automation Assistant.
-Answer only QA, Testing, Selenium, Playwright, Cypress, API Testing questions.
-If the question is not related to QA, reply rudely.
+
+You ONLY answer questions related to:
+- QA Testing
+- Manual Testing
+- Automation Testing
+- Selenium
+- Playwright
+- Cypress
+- API Testing
+
+If the question is NOT related to QA or testing, reply rudely.
 
 User Question:
 ${question}
-`
-                }
-              ]
-            }
-          ]
-        })
-      }
-    );
+`;
 
-    const data = await response.json();
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
 
-    if (!response.ok) {
-      console.error("❌ Gemini API error:", data);
-      return res.status(500).json({
-        error: data.error?.message || "Gemini API Error"
-      });
-    }
-
-    const answer =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No response from Gemini";
-
-    res.json({ answer });
+    res.json({ answer: text });
 
   } catch (err) {
-    console.error("❌ Server error:", err);
+    console.error("❌ Gemini error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
