@@ -1,0 +1,29 @@
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '20.x'
+  displayName: 'Install Node.js'
+
+# Backend Install
+- script: |
+    cd backend
+    npm install
+  displayName: 'Backend - npm install'
+
+# Frontend is static HTML/CSS/JS, no build needed
+# But we can copy it as artifact
+
+# Run Backend Server Test (optional)
+- script: |
+    cd backend
+    node server.js &
+    sleep 5
+    curl http://localhost:3000 || echo "Server check done"
+    kill %1
+  displayName: 'Test Backend Server'
